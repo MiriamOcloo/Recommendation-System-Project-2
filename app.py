@@ -1,61 +1,72 @@
 import streamlit as st
-import pickle
 import pandas as pd
+import ast
 
-st.set_page_config(page_title="Recommender", page_icon="", layout="wide")
+class CategoryRecommender:
+    def __init__(self, rules_df):
+        self.rules = rules_df.copy()
+        self.rule_map = {}
+        for _, rule in self.rules.iterrows():
+            # Convert string representation to actual Python sets/lists
+            try:
+                if isinstance(rule['antecedents'], str):
+                    antecedents = frozenset(ast.literal_eval(rule['antecedents']))
+                else:
+                    antecedents = frozenset(rule['antecedents'])
+                
+                if isinstance(rule['consequents'], str):
+                    consequent = list(ast.literal_eval(rule['consequents']))[0]
+                else:
+                    consequent = list(rule['consequents'])[0]
+                
+                if antecedents not in self.rule_map:
+                    self.rule_map[antecedents] = []
+                self.rule_map[antecedents].append((consequent, rule['confidence']))
+            except:
+                continue
+    
+    def recommend(self, viewed_categories, top_n=3):
+        viewed_set = set(viewed_categories)
+        recommendations = {}
+        
+        for antecedents, conseqs in self.rule_map.items():
+            if antecedents.issubset(viewed_set):
+                for consequent, confidence in conseqs:
+                    if consequent not in viewed_set:
+                        if consequent not in recommendations or confidence > recommendations[consequent]:
+                            recommendations[consequent] = confidence
+        
+        sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
+        return sorted_recommendations[:top_n]
 
-st.title("Recommendation System")
-st.markdown("Get intelligent product recommendations based on user browsing behavior")
+# Initialize the app
+st.set_page_config(page_title="E-Commerce Recommender", page_icon="", layout="wide")
+st.title(" E-Commerce Recommendation System")
 
-# Load your trained model
-try:
-    with open('category_recommender.pkl', 'rb') as f:
-        recommender = pickle.load(f)
-    st.sidebar.success("Model loaded successfully!")
-except Exception as e:
-    st.sidebar.error(f"Model loading failed: {str(e)}")
-
-# Load your association rules for display
+# Load rules from CSV (more reliable than pickle)
 try:
     rules_df = pd.read_csv('association_rules_recommendations.csv')
-    st.sidebar.info(f" {len(rules_df)} association rules loaded")
-except:
-    st.sidebar.warning(" Rules file not found")
+    recommender = CategoryRecommender(rules_df)
+    st.sidebar.success(f" Loaded {len(rules_df)} association rules!")
+except Exception as e:
+    st.sidebar.error(f" Failed to load rules: {str(e)}")
+    recommender = None
 
-# User input section
-st.sidebar.header(" Input Parameters")
-viewed_categories = st.sidebar.text_input("Categories Viewed (comma-separated)", "1483, 959")
-top_n = st.sidebar.slider("Number of Recommendations", 1, 10, 3)
-
-# Recommendation function
-if st.button(" Get Recommendations", type="primary"):
-    try:
-        categories = [float(x.strip()) for x in viewed_categories.split(",") if x.strip()]
-        if categories:
+# User interface
+if recommender:
+    viewed_categories = st.sidebar.text_input("Categories Viewed (comma-separated)", "1483, 959")
+    top_n = st.sidebar.slider("Number of Recommendations", 1, 10, 3)
+    
+    if st.button("Get Recommendations"):
+        try:
+            categories = [float(x.strip()) for x in viewed_categories.split(",") if x.strip()]
             recommendations = recommender.recommend(categories, top_n)
             
-            st.success(f" Generated {len(recommendations)} recommendations!")
-            
-            # Display recommendations
+            st.success(f"Generated {len(recommendations)} recommendations!")
             for i, (cat_id, confidence) in enumerate(recommendations, 1):
                 st.info(f"**#{i}: Category {cat_id}** - {confidence:.1%} confidence")
-        else:
-            st.warning(" Please enter valid category numbers")
-            
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-
-# Show system stats
-st.sidebar.markdown("---")
-st.sidebar.markdown("** System Performance**")
-st.sidebar.write("• 409 association rules discovered")
-st.sidebar.write("• 73.9% max prediction accuracy")
-st.sidebar.write("• 6.91x better than random")
-st.sidebar.write("• 17x lift on best patterns")
-
-# Add some examples
-st.sidebar.markdown("---")
-st.sidebar.markdown("** Try These Examples:**")
-st.sidebar.write("• `1483, 959` → Predicts Category 1051")
-st.sidebar.write("• `57, 1483` → Predicts Category 959")
-st.sidebar.write("• `1384, 1135` → Predicts Category 589")
+                
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+else:
+    st.error("Could not initialize the recommendation system. Please check your data files.")
