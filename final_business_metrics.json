@@ -1,0 +1,12 @@
+{
+  "total_events": 2584874,
+  "total_users": 1393504,
+  "view_count": 2544163,
+  "addtocart_count": 33402,
+  "transaction_count": 7309,
+  "view_to_cart_rate": 0.013128875783509153,
+  "cart_to_purchase_rate": 0.21881923238129453,
+  "peak_activity_hour": 20,
+  "busiest_day": "Tuesday",
+  "analysis_date": "2025-08-25 05:02:33"
+}
