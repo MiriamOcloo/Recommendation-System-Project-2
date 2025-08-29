@@ -61,7 +61,7 @@ if recommender:
         try:
             categories = [float(x.strip()) for x in viewed_categories.split(",") if x.strip()]
             recommendations = recommender.recommend(categories, top_n)
-            print(recommedations)
+            print(recommendations)
             
             st.success(f"Generated {len(recommendations)} recommendations!")
             for i, (cat_id, confidence) in enumerate(recommendations, 1):
